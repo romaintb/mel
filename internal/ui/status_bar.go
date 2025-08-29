@@ -7,11 +7,12 @@ import (
 
 // StatusBar represents the bottom status bar
 type StatusBar struct {
-	config  *config.Config
-	width   int
-	height  int
-	message string
-	mode    string
+	config     *config.Config
+	width      int
+	height     int
+	message    string
+	mode       string
+	focusedBox string
 }
 
 // NewStatusBar creates a new status bar instance
@@ -45,8 +46,8 @@ func (s *StatusBar) View() string {
 		return ""
 	}
 
-	// Left side: mode and message
-	left := "[" + s.mode + "] " + s.message
+	// Left side: mode, focused box, and message
+	left := "[" + s.mode + "][" + s.focusedBox + "] " + s.message
 
 	// Right side: shortcuts
 	right := "q:quit h:sidebar l:list i:insert v:visual /:search"
@@ -75,6 +76,11 @@ func (s *StatusBar) SetMessage(msg string) {
 // SetMode sets the current mode
 func (s *StatusBar) SetMode(mode string) {
 	s.mode = mode
+}
+
+// SetFocusedBox sets the currently focused box
+func (s *StatusBar) SetFocusedBox(box string) {
+	s.focusedBox = box
 }
 
 // Resize resizes the status bar

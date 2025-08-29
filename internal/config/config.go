@@ -37,6 +37,9 @@ type UIConfig struct {
 	// Theme settings
 	Theme ThemeConfig `yaml:"theme"`
 
+	// Icon mode (emoji or ascii)
+	IconMode string `yaml:"icon_mode,omitempty"`
+
 	// Keybindings (neovim-style, non-remappable)
 	Keybindings KeybindingsConfig `yaml:"keybindings"`
 }
@@ -87,6 +90,7 @@ func DefaultConfig() *Config {
 				ShowUnreadIndicators: true,
 				ShowSyncStatus:       true,
 			},
+			IconMode: "ascii",
 			Keybindings: KeybindingsConfig{
 				Leader: " ",
 			},
