@@ -16,11 +16,11 @@ type ThreadList struct {
 	height       int
 	focused      bool
 	selected     int
-	threads      []Thread
+	threads      []ThreadItem
 }
 
 // Thread represents an email thread
-type Thread struct {
+type ThreadItem struct {
 	ID      string
 	Subject string
 	From    string
@@ -32,7 +32,7 @@ type Thread struct {
 // NewThreadList creates a new thread list instance
 func NewThreadList(cfg *config.Config, emailManager *email.Manager, iconService *icons.Service) (*ThreadList, error) {
 	// Mock data for now
-	threads := []Thread{
+	threads := []ThreadItem{
 		{ID: "1", Subject: "Welcome to Mel", From: "team@mel.com", Date: "2024-01-15", Unread: true, Starred: false},
 		{ID: "2", Subject: "Project Update", From: "manager@work.com", Date: "2024-01-14", Unread: false, Starred: true},
 		{ID: "3", Subject: "Meeting Tomorrow", From: "colleague@work.com", Date: "2024-01-13", Unread: true, Starred: false},

@@ -15,7 +15,7 @@ type ThreadView struct {
 	width         int
 	height        int
 	focused       bool
-	currentThread *Thread
+	currentThread *ThreadItem
 }
 
 // NewThreadView creates a new thread view instance
@@ -94,7 +94,7 @@ func (t *ThreadView) Resize(width, height int) tea.Cmd {
 }
 
 // SetThread sets the current thread to display
-func (t *ThreadView) SetThread(thread *Thread) {
+func (t *ThreadView) SetThread(thread *ThreadItem) {
 	t.currentThread = thread
 }
 
