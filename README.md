@@ -34,12 +34,12 @@ Mel delivers the resource efficiency and keyboard-driven speed that power users 
 
 ### Prerequisites
 
-Mel requires these external tools to be installed and configured:
+Mel requires Go and these external tools to be installed and configured:
 
+- **Go** ≥ 1.22 (to build; verify with `go version`)
 - **mbsync** or **offlineimap** for email synchronization
 - **notmuch** for search and threading
 - **msmtp** or **sendmail** for sending emails
-
 ### Installation
 
 ```bash
@@ -162,6 +162,7 @@ internal/
 - **notmuch**: Search, indexing, and threading
 - **msmtp**: SMTP sending operations
 
+Security note: Avoid storing SMTP/IMAP passwords in plain text. Prefer OAuth2 or OS keychain helpers (e.g., `pass`, GNOME Keyring, macOS Keychain) and restrict file permissions on config files.
 ## 🎨 Design Philosophy
 
 - **Familiar Efficiency**: Keyboard shortcuts that feel natural to neovim/lazygit users
@@ -197,7 +198,7 @@ internal/
 
 Contributions are welcome! Please read our contributing guidelines and ensure your code follows our standards:
 
-- All Go code must pass `gofmt` and `golint`
+- All Go code must pass `gofmt`, `go vet`, and `staticcheck`
 - Follow Go best practices and idioms
 - Maintain the PRD-driven architecture
 - Add tests for new functionality

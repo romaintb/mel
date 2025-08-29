@@ -38,7 +38,7 @@ type UIConfig struct {
 	Theme ThemeConfig `yaml:"theme"`
 
 	// Icon mode (emoji or ascii)
-	IconMode string `yaml:"icon_mode"`
+	IconMode string `yaml:"icon_mode,omitempty"`
 
 	// Keybindings (neovim-style, non-remappable)
 	Keybindings KeybindingsConfig `yaml:"keybindings"`

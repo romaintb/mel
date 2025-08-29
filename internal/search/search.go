@@ -49,6 +49,10 @@ func NewSearchService(emailManager *email.Manager) *SearchService {
 
 // Search performs a search based on the query type
 func (s *SearchService) Search(query SearchQuery) ([]*SearchResult, error) {
+	if s.emailManager == nil {
+		return nil, fmt.Errorf("search service not initialized: email manager is nil")
+	}
+
 	switch query.Type {
 	case SearchContent:
 		return s.searchContent(query)

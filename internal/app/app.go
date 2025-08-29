@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/romaintb/mel/internal/config"
@@ -30,15 +31,21 @@ func New(version string) (*App, error) {
 
 	// Initialize icon service with configured mode
 	var iconMode icons.IconMode
-	switch cfg.UI.IconMode {
+	switch strings.ToLower(strings.TrimSpace(cfg.UI.IconMode)) {
+	case "", "ascii":
+		iconMode = icons.IconModeASCII
 	case "emoji":
 		iconMode = icons.IconModeEmoji
 	default:
-		iconMode = icons.IconModeASCII
+		return nil, fmt.Errorf("invalid ui.iconMode %q; allowed: ascii, emoji", cfg.UI.IconMode)
 	}
 	iconService := icons.NewService(iconMode)
 
 	// Initialize email manager with external tool paths
+	if cfg.Email.Maildir == "" {
+		return nil, fmt.Errorf("email.maildir is required")
+	}
+
 	emailManager := email.NewManager(
 		cfg.Email.Maildir,
 		cfg.ExternalTools.Notmuch,
