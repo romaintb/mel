@@ -6,13 +6,19 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/romaintb/mel/internal/config"
+	"github.com/romaintb/mel/internal/email"
+	"github.com/romaintb/mel/internal/icons"
+	"github.com/romaintb/mel/internal/search"
 	"github.com/romaintb/mel/internal/ui"
 )
 
 // App represents the main application
 type App struct {
-	ui     *ui.UI
-	config *config.Config
+	ui            *ui.UI
+	config        *config.Config
+	emailManager  *email.Manager
+	searchService *search.SearchService
+	iconService   *icons.Service
 }
 
 // New creates a new application instance
@@ -22,14 +28,39 @@ func New(version string) (*App, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	ui, err := ui.New(cfg)
+	// Initialize icon service with configured mode
+	var iconMode icons.IconMode
+	switch cfg.UI.IconMode {
+	case "emoji":
+		iconMode = icons.IconModeEmoji
+	default:
+		iconMode = icons.IconModeASCII
+	}
+	iconService := icons.NewService(iconMode)
+
+	// Initialize email manager with external tool paths
+	emailManager := email.NewManager(
+		cfg.Email.Maildir,
+		cfg.ExternalTools.Notmuch,
+		cfg.ExternalTools.Mbsync,
+		cfg.ExternalTools.Msmtp,
+	)
+
+	// Initialize search service
+	searchService := search.NewSearchService(emailManager)
+
+	// Initialize UI with services
+	ui, err := ui.New(cfg, emailManager, searchService, iconService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize UI: %w", err)
 	}
 
 	return &App{
-		ui:     ui,
-		config: cfg,
+		ui:            ui,
+		config:        cfg,
+		emailManager:  emailManager,
+		searchService: searchService,
+		iconService:   iconService,
 	}, nil
 }
 

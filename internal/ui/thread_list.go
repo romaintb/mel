@@ -3,16 +3,20 @@ package ui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/romaintb/mel/internal/config"
+	"github.com/romaintb/mel/internal/email"
+	"github.com/romaintb/mel/internal/icons"
 )
 
 // ThreadList represents the list of email threads
 type ThreadList struct {
-	config   *config.Config
-	width    int
-	height   int
-	focused  bool
-	selected int
-	threads  []Thread
+	config       *config.Config
+	emailManager *email.Manager
+	iconService  *icons.Service
+	width        int
+	height       int
+	focused      bool
+	selected     int
+	threads      []Thread
 }
 
 // Thread represents an email thread
@@ -26,7 +30,7 @@ type Thread struct {
 }
 
 // NewThreadList creates a new thread list instance
-func NewThreadList(cfg *config.Config) (*ThreadList, error) {
+func NewThreadList(cfg *config.Config, emailManager *email.Manager, iconService *icons.Service) (*ThreadList, error) {
 	// Mock data for now
 	threads := []Thread{
 		{ID: "1", Subject: "Welcome to Mel", From: "team@mel.com", Date: "2024-01-15", Unread: true, Starred: false},
@@ -35,12 +39,14 @@ func NewThreadList(cfg *config.Config) (*ThreadList, error) {
 	}
 
 	return &ThreadList{
-		config:   cfg,
-		width:    0, // Will be set by Resize
-		height:   0,
-		focused:  false,
-		selected: 0,
-		threads:  threads,
+		config:       cfg,
+		emailManager: emailManager,
+		iconService:  iconService,
+		width:        0, // Will be set by Resize
+		height:       0,
+		focused:      false,
+		selected:     0,
+		threads:      threads,
 	}, nil
 }
 
@@ -65,23 +71,23 @@ func (t *ThreadList) View() string {
 	}
 
 	var result string
-	result += "📧 Threads\n"
+	result += t.iconService.Get("email") + " Threads\n"
 	result += "─────────\n"
 
 	for i, thread := range t.threads {
 		prefix := "  "
 		if i == t.selected {
-			prefix = "▶ "
+			prefix = t.iconService.Get("selected") + " "
 		}
 
 		unread := ""
 		if thread.Unread {
-			unread = "● "
+			unread = t.iconService.Get("unread") + " "
 		}
 
 		starred := ""
 		if thread.Starred {
-			starred = "⭐ "
+			starred = t.iconService.Get("star") + " "
 		}
 
 		result += prefix + unread + starred + thread.Subject + "\n"
@@ -93,22 +99,22 @@ func (t *ThreadList) View() string {
 
 	// Add more mock threads if we have more height available
 	if t.height > 15 {
-		result += "\n📧 More Threads\n"
+		result += "\n" + t.iconService.Get("email") + " More Threads\n"
 		result += "──────────────\n"
-		result += "  📋 Weekly Report\n"
+		result += "  " + t.iconService.Get("email") + " Weekly Report\n"
 		result += "   team@company.com • 2024-01-12\n"
-		result += "\n  📅 Calendar Update\n"
+		result += "\n  " + t.iconService.Get("email") + " Calendar Update\n"
 		result += "   calendar@company.com • 2024-01-11\n"
-		result += "\n  💬 Team Chat\n"
+		result += "\n  " + t.iconService.Get("email") + " Team Chat\n"
 		result += "   chat@company.com • 2024-01-10\n"
 	}
 
 	if t.height > 25 {
-		result += "\n📧 Archive\n"
+		result += "\n" + t.iconService.Get("archive") + " Archive\n"
 		result += "─────────\n"
-		result += "  📊 Q4 Results\n"
+		result += "  " + t.iconService.Get("email") + " Q4 Results\n"
 		result += "   finance@company.com • 2024-01-09\n"
-		result += "\n  🎉 Holiday Party\n"
+		result += "\n  " + t.iconService.Get("email") + " Holiday Party\n"
 		result += "   hr@company.com • 2024-01-08\n"
 	}
 
@@ -159,4 +165,105 @@ func (t *ThreadList) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return t, nil
+}
+
+// GoToTop goes to the first thread
+func (t *ThreadList) GoToTop() tea.Cmd {
+	t.selected = 0
+	return nil
+}
+
+// GoToBottom goes to the last thread
+func (t *ThreadList) GoToBottom() tea.Cmd {
+	t.selected = len(t.threads) - 1
+	return nil
+}
+
+// Next goes to the next thread
+func (t *ThreadList) Next() tea.Cmd {
+	if t.selected < len(t.threads)-1 {
+		t.selected++
+	}
+	return nil
+}
+
+// Prev goes to the previous thread
+func (t *ThreadList) Prev() tea.Cmd {
+	if t.selected > 0 {
+		t.selected--
+	}
+	return nil
+}
+
+// NextUnread goes to the next unread thread
+func (t *ThreadList) NextUnread() tea.Cmd {
+	for i := t.selected + 1; i < len(t.threads); i++ {
+		if t.threads[i].Unread {
+			t.selected = i
+			break
+		}
+	}
+	return nil
+}
+
+// PrevUnread goes to the previous unread thread
+func (t *ThreadList) PrevUnread() tea.Cmd {
+	for i := t.selected - 1; i >= 0; i-- {
+		if t.threads[i].Unread {
+			t.selected = i
+			break
+		}
+	}
+	return nil
+}
+
+// ToggleThread toggles thread expansion
+func (t *ThreadList) ToggleThread() tea.Cmd {
+	// TODO: Implement thread expansion/collapse
+	return nil
+}
+
+// ArchiveCurrent archives the current thread
+func (t *ThreadList) ArchiveCurrent() tea.Cmd {
+	if t.selected >= 0 && t.selected < len(t.threads) {
+		// TODO: Implement actual archiving via email manager
+		return nil
+	}
+	return nil
+}
+
+// DeleteCurrent deletes the current thread
+func (t *ThreadList) DeleteCurrent() tea.Cmd {
+	if t.selected >= 0 && t.selected < len(t.threads) {
+		// TODO: Implement actual deletion via email manager
+		return nil
+	}
+	return nil
+}
+
+// ToggleStar toggles star status of current thread
+func (t *ThreadList) ToggleStar() tea.Cmd {
+	if t.selected >= 0 && t.selected < len(t.threads) {
+		t.threads[t.selected].Starred = !t.threads[t.selected].Starred
+		return nil
+	}
+	return nil
+}
+
+// MarkRead marks the current thread as read
+func (t *ThreadList) MarkRead() tea.Cmd {
+	if t.selected >= 0 && t.selected < len(t.threads) {
+		t.threads[t.selected].Unread = false
+		return nil
+	}
+	return nil
+}
+
+// MarkUnread marks the current thread as unread
+func (t *ThreadList) MarkUnread() tea.Cmd {
+	if t.selected >= 0 && t.selected < len(t.threads) {
+		t.threads[t.selected].Unread = true
+		return nil
+	}
+	return nil
 }

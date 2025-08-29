@@ -3,11 +3,15 @@ package ui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/romaintb/mel/internal/config"
+	"github.com/romaintb/mel/internal/email"
+	"github.com/romaintb/mel/internal/icons"
 )
 
 // ThreadView represents the view of an individual email thread
 type ThreadView struct {
 	config        *config.Config
+	emailManager  *email.Manager
+	iconService   *icons.Service
 	width         int
 	height        int
 	focused       bool
@@ -15,9 +19,11 @@ type ThreadView struct {
 }
 
 // NewThreadView creates a new thread view instance
-func NewThreadView(cfg *config.Config) (*ThreadView, error) {
+func NewThreadView(cfg *config.Config, emailManager *email.Manager, iconService *icons.Service) (*ThreadView, error) {
 	return &ThreadView{
 		config:        cfg,
+		emailManager:  emailManager,
+		iconService:   iconService,
 		width:         0,
 		height:        0,
 		focused:       false,
@@ -50,7 +56,7 @@ func (t *ThreadView) View() string {
 	}
 
 	var result string
-	result += "📧 " + t.currentThread.Subject + "\n"
+	result += t.iconService.Get("email") + " " + t.currentThread.Subject + "\n"
 	result += "From: " + t.currentThread.From + "\n"
 	result += "Date: " + t.currentThread.Date + "\n"
 	result += "─────────────────────────────\n"

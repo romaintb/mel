@@ -1,37 +1,44 @@
-# Next-Gen TUI Email Client
+# Mel - Next-Gen TUI Email Client
 
-A modern terminal-based email client built in Go that combines the efficiency of CLI tools with the polish of contemporary TUI applications.
+A modern terminal-based email client that combines the efficiency of CLI tools with the polish of contemporary TUI applications. Built with Go and Bubble Tea, designed for developers and power users who live in terminal environments.
 
-## Features
+## 🎯 Product Vision
 
-- **Resource Efficient**: Lightweight alternative to memory-heavy webmail clients
-- **Modern TUI**: Inspired by lazygit and neovim aesthetics with mouse + keyboard support
-- **Conversation Threading**: Gmail-style email threading as first-class experience
-- **Powerful Search**: Telescope-style fuzzy search with live preview
-- **Zero Config**: Auto-detects existing maildir setups from mbsync/offlineimap
-- **Neovim-inspired Interface**: Modal operations with visual discoverability
-- **Gmail-style Threading**: Conversation-first email paradigm
-- **Resource Conscious**: Sub-100MB memory footprint, instant startup
-- **External Tool Integration**: Works with mbsync, notmuch, and msmtp
-- **Keyboard-First**: All operations accessible via shortcuts
-- **Mouse Support**: Enhanced interaction for discoverability
+Mel delivers the resource efficiency and keyboard-driven speed that power users crave, while maintaining the familiar interaction patterns of modern development tools like neovim and lazygit.
 
-## Architecture
+## ✨ Key Features
 
-Follows the aerc philosophy - delegates email sync/send to external tools (mbsync, msmtp, notmuch) and focuses on delivering an exceptional user experience.
+### **Navigation & Layout**
+- **Left Sidebar**: Collapsible account/folder tree with unread counts and sync status
+- **Thread List**: Gmail-style conversation view with subject, participants, and timestamps
+- **Thread View**: Continuous conversation flow with smart collapsing
+- **Modal Interface**: Neovim-inspired modal operations (Normal/Insert/Visual/Search)
 
-## Documentation
+### **Search & Discovery**
+- **Telescope Integration**: Two-pane search with results list and live preview
+- **Content Search** (`<leader>fg`): Full-text search across all emails
+- **Sender Search** (`<leader>fs`): Find emails from specific people/addresses
+- **Global Email Search** (`<leader>fe`): Fuzzy search across subjects, senders, dates
 
-- **[Product Requirements Document](docs/PRD.md)** - Complete product vision and technical requirements
-- **Setup Guide** - Coming soon
-- **Architecture Overview** - Coming soon
+### **Threading & Conversations**
+- **Gmail-Style Threading**: Single conversation flow with smart collapsing
+- **Thread Actions**: Archive, delete, star, mark read/unread
+- **Smart Navigation**: `j/k` between emails, `n/p` between threads
 
-## Quick Start
+### **External Tool Integration**
+- **Email Sync**: `mbsync`/`offlineimap` for IMAP synchronization
+- **Search & Indexing**: `notmuch` for search and threading support
+- **Sending**: `msmtp`/`sendmail` for SMTP operations
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Go 1.24 or later
-- External email tools (mbsync, notmuch, msmtp)
+Mel requires these external tools to be installed and configured:
+
+- **mbsync** or **offlineimap** for email synchronization
+- **notmuch** for search and threading
+- **msmtp** or **sendmail** for sending emails
 
 ### Installation
 
@@ -43,145 +50,164 @@ cd mel
 # Build the application
 make build
 
-# Run the application
-./bin/mel
+# Run mel
+./cmd/mel/mel
 ```
 
-### Development Setup
+### Configuration
 
-```bash
-# Install development tools
-make install-tools
+Mel automatically detects your email setup and works with standard configurations:
 
-# Run tests
-make test
+- **Maildir**: `~/Mail` (configurable)
+- **Config**: `~/.config/mel/config.yaml` (auto-generated with defaults)
 
-# Format code
-make fmt
+#### **Icon Modes**
 
-# Run linter
-make lint
+Mel supports two icon display modes:
 
-# Run all checks
-make check
+- **ASCII Mode** (default): Uses single-character ASCII art icons for compatibility with all terminals
+- **Emoji Mode**: Uses colorful emoji icons for better visual appeal
+
+Toggle between modes with `<leader>i` or configure the default in your config file:
+
+```yaml
+ui:
+  icon_mode: "ascii"  # or "emoji"
 ```
 
-## Keybindings
+## ⌨️ Keybindings
 
-### Normal Mode
-- `h` - Focus sidebar
-- `l` - Focus thread list
+### **Normal Mode**
+- `h/l` - Navigate between sidebar and content
+- `j/k` - Navigate threads
+- `n/p` - Next/previous unread thread
+- `o` - Expand/collapse thread
+- `a` - Archive thread
+- `d` - Delete thread
+- `s` - Star/unstar thread
+- `r` - Mark as read
+- `u` - Mark as unread
+- `e` - Toggle sidebar
 - `i` - Enter insert mode
 - `v` - Enter visual mode
 - `/` - Enter search mode
-- `q` - Quit
 
-### Thread Navigation
-- `j/k` - Navigate threads
-- `gg/G` - Go to first/last thread
-- `enter` - Select thread
-
-### Search
+### **Search Mode**
 - `<leader>fg` - Content search
-- `<leader>fs` - Sender search
-- `<leader>fe` - Global email search
+- `<leader>fs` - Sender search  
+- `<leader>fe` - Global search
+- `esc` - Exit search mode
 
-## Architecture
+### **Leader Key**
+- `<space>` - Show available commands
+- `<space>e` - Toggle sidebar
+- `<space>i` - Toggle icon mode (emoji/ascii)
 
-Mel follows a delegation model where external tools handle email operations:
+## 🏗️ Architecture
 
-- **mbsync/offlineimap**: IMAP synchronization
-- **notmuch**: Email indexing and threading
-- **msmtp**: SMTP sending
-
-The application focuses on providing an excellent user experience while delegating the complex email handling to proven tools.
-
-## Project Structure
+Mel follows a **delegation model** where external tools handle the heavy lifting:
 
 ```
-mel/
-├── cmd/mel/          # Main application entry point
-├── internal/         # Private application code
-│   ├── app/         # Main application logic
-│   ├── config/      # Configuration management
-│   └── ui/          # TUI components
-├── pkg/             # Potentially reusable packages
-├── docs/            # Documentation
-└── scripts/         # Build and utility scripts
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│      Mel        │    │   External      │    │   Email        │
+│   (TUI/UX)     │◄──►│     Tools       │◄──►│   Servers      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+        │                       │
+        │              ┌────────┴────────┐
+        │              │                 │
+        │           mbsync          notmuch
+        │        (IMAP sync)      (search/index)
+        │
+        └──────────────┐
+                       │
+                   msmtp
+                (SMTP send)
 ```
 
-## Configuration
+### **Core Components**
+- **Email Manager**: Coordinates external tool operations
+- **Search Service**: Implements Telescope-style search with relevance scoring
+- **UI Components**: Modal interface with neovim-inspired interactions
+- **Configuration**: Auto-detection with sensible defaults
 
-Configuration is automatically loaded from `~/.config/mel/config.yaml`. The application will create a default configuration if none exists.
+## 📊 Performance Targets
 
-### Example Configuration
+- **Memory Usage**: < 100MB runtime footprint
+- **Startup Time**: < 500ms cold start
+- **Response Time**: < 100ms for all UI interactions
+- **Search Speed**: Instant results for indexed content
 
-```yaml
-email:
-  maildir: ~/Mail
-  default_account: ""
-  auto_sync_interval: 300
+## 🔧 Development
 
-ui:
-  theme:
-    color_scheme: "auto"
-    show_unread_indicators: true
-    show_sync_status: true
-  keybindings:
-    leader: " "
-
-external_tools:
-  mbsync: "mbsync"
-  notmuch: "notmuch"
-  msmtp: "msmtp"
+### **Building**
+```bash
+make build          # Build the application
+make test           # Run tests
+make clean          # Clean build artifacts
 ```
 
-## Development
+### **Project Structure**
+```
+internal/
+├── app/           # Main application logic
+├── config/        # Configuration management
+├── email/         # Email data models and external tool integration
+├── icons/         # Icon service with emoji/ASCII mode support
+├── search/        # Search service with relevance scoring
+└── ui/            # TUI components and modal interface
+```
 
-### Code Style
+### **External Tool Integration**
+- **mbsync**: Email synchronization via IMAP
+- **notmuch**: Search, indexing, and threading
+- **msmtp**: SMTP sending operations
 
+## 🎨 Design Philosophy
+
+- **Familiar Efficiency**: Keyboard shortcuts that feel natural to neovim/lazygit users
+- **Hybrid Interaction**: Mouse support for discoverability, keyboard shortcuts for speed
+- **Conversation-First**: Gmail-style threading as the default email paradigm
+- **Resource Conscious**: Sub-100MB memory footprint, instant startup, snappy interactions
+
+## 📈 Roadmap
+
+### **Phase 1: Core Foundation** ✅
+- [x] Basic TUI framework with Bubble Tea
+- [x] External tool integration structure
+- [x] Modal interface implementation
+- [x] Email data models
+
+### **Phase 2: Search & Navigation** 🚧
+- [x] Search service architecture
+- [x] Basic keybindings
+- [ ] Complete search implementation
+- [ ] Thread conversation view
+
+### **Phase 3: Polish & Composition** 📋
+- [ ] Compose interface with context
+- [ ] Mouse support integration
+- [ ] Visual polish and status indicators
+
+### **Phase 4: Advanced Features** 📋
+- [ ] Smart threading improvements
+- [ ] Performance optimizations
+- [ ] Extended external tool support
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our contributing guidelines and ensure your code follows our standards:
+
+- All Go code must pass `gofmt` and `golint`
 - Follow Go best practices and idioms
-- Use 120 character line width
-- Prefer clear code over comments
-- Keep models and controllers thin
-- Use services for business logic
+- Maintain the PRD-driven architecture
+- Add tests for new functionality
 
-### Testing
+## 📄 License
 
-```bash
-# Run all tests
-make test
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# Run tests with coverage
-make test-coverage
+## 🙏 Acknowledgments
 
-# Run benchmarks
-make bench
-```
-
-### Linting
-
-```bash
-# Run linter
-make lint
-
-# Run go vet
-make vet
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Inspired by [lazygit](https://github.com/jesseduffield/lazygit)
-- Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea)
+- Inspired by the efficiency of `aerc` and the polish of modern TUI tools
+- Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) for excellent TUI support
+- Designed for the neovim/lazygit user experience
