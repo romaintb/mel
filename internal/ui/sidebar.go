@@ -223,11 +223,15 @@ func (s *Sidebar) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "j":
-		// Move down
+		return s, s.Next()
 	case "k":
-		// Move up
+		return s, s.Prev()
 	case "enter":
 		// Select folder
+	case "home":
+		return s, s.GoToTop()
+	case "end":
+		return s, s.GoToBottom()
 	}
 
 	return s, nil
