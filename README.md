@@ -9,7 +9,8 @@ Mel delivers the resource efficiency and keyboard-driven speed that power users 
 ## ✨ Key Features
 
 ### **Navigation & Layout**
-- **Left Sidebar**: Collapsible account/folder tree with unread counts and sync status
+- **Left Sidebar**: Dynamic mail folder tree with real-time unread counts and sync status
+- **Mail Folders**: Automatically scans `~/Mail` directory for actual email folders
 - **Thread List**: Gmail-style conversation view with subject, participants, and timestamps
 - **Thread View**: Continuous conversation flow with smart collapsing
 - **Modal Interface**: Neovim-inspired modal operations (Normal/Insert/Visual/Search)
@@ -61,6 +62,43 @@ Mel automatically detects your email setup and works with standard configuration
 - **Maildir**: `~/Mail` (configurable)
 - **Config**: `~/.config/mel/config.yaml` (auto-generated with defaults)
 
+#### **Mail Folder Setup**
+
+Mel automatically scans your mail directory for folders and displays them in the sidebar:
+
+1. **Configure mbsync** to sync emails to `~/Mail` (or your preferred directory)
+2. **Run mbsync** to download your email folders
+3. **Mel will automatically detect** and display all folders with unread counts
+4. **Special folders** (INBOX, Sent, Drafts, Trash, etc.) are automatically recognized and sorted first
+5. **Maildir storage folders** (`cur`, `new`, `tmp`) are automatically filtered out and not displayed
+6. **Press `r`** in the sidebar to refresh the folder list
+7. **Smart scrolling** automatically handles long folder lists within the available screen height
+8. **Text truncation** ensures long folder names never wrap to multiple lines
+9. **Optimized sidebar width** (40 characters) provides more space for folder names
+
+Example mbsync configuration:
+```bash
+# ~/.mbsyncrc
+IMAPAccount gmail
+Host imap.gmail.com
+User your-email@gmail.com
+PassCmd "pass show email/gmail"
+SSLType IMAPS
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+Path ~/Mail/Gmail/
+Inbox ~/Mail/Gmail/INBOX
+
+Channel gmail
+Master :gmail-remote:
+Slave :gmail-local:
+Create Slave
+Sync All
+```
+
 #### **Icon Modes**
 
 Mel supports two icon display modes:
@@ -68,7 +106,7 @@ Mel supports two icon display modes:
 - **ASCII Mode** (default): Uses single-character ASCII art icons for compatibility with all terminals
 - **Emoji Mode**: Uses colorful emoji icons for better visual appeal
 
-Toggle between modes with `<leader>i` or configure the default in your config file:
+Toggle between modes with `<leader>i` or configure the default in your config file:`
 
 ```yaml
 ui:
@@ -79,18 +117,19 @@ ui:
 
 ### **Normal Mode**
 - `h/l` - Navigate between sidebar and content
-- `j/k` - Navigate threads
+- `j/k` - Navigate folders and actions in sidebar (with smart scrolling)
 - `n/p` - Next/previous unread thread
 - `o` - Expand/collapse thread
 - `a` - Archive thread
 - `d` - Delete thread
 - `s` - Star/unstar thread
-- `r` - Mark as read
+- `r` - Mark as read / Refresh folders in sidebar
 - `u` - Mark as unread
 - `e` - Toggle sidebar
 - `i` - Enter insert mode
 - `v` - Enter visual mode
 - `/` - Enter search mode
+- `enter` - Select folder or action in sidebar
 
 ### **Search Mode**
 - `<leader>fg` - Content search

@@ -468,7 +468,7 @@ func (u *UI) handleResize(msg tea.WindowSizeMsg) []tea.Cmd {
 	contentHeight := u.height - 4              // Account for status bar (1) + borders (2)
 
 	// Resize child components with their allocated dimensions
-	if cmd := u.sidebar.Resize(sidebarWidth-4, contentHeight-4); cmd != nil {
+	if cmd := u.sidebar.Resize(sidebarWidth-2, contentHeight-2); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
 	if cmd := u.threadList.Resize(contentWidth-4, contentHeight-4); cmd != nil {

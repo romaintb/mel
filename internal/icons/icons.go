@@ -18,6 +18,8 @@ type IconSet struct {
 	Trash   string
 	Starred string
 	Archive string
+	Folder  string
+	Spam    string
 
 	// Actions
 	Compose  string
@@ -40,9 +42,11 @@ type IconSet struct {
 	Bottom   string
 
 	// UI elements
-	Selected  string
-	Collapsed string
-	Expanded  string
+	Selected   string
+	Collapsed  string
+	Expanded   string
+	ScrollUp   string
+	ScrollDown string
 
 	// Statistics
 	Total        string
@@ -160,6 +164,10 @@ func (s *Service) setCustomIconValue(iconSet *IconSet, iconName, value string) {
 		iconSet.Starred = value
 	case "archive":
 		iconSet.Archive = value
+	case "folder":
+		iconSet.Folder = value
+	case "spam":
+		iconSet.Spam = value
 	case "compose":
 		iconSet.Compose = value
 	case "search":
@@ -194,6 +202,10 @@ func (s *Service) setCustomIconValue(iconSet *IconSet, iconName, value string) {
 		iconSet.Collapsed = value
 	case "expanded":
 		iconSet.Expanded = value
+	case "scrollUp":
+		iconSet.ScrollUp = value
+	case "scrollDown":
+		iconSet.ScrollDown = value
 	case "total":
 		iconSet.Total = value
 	case "unreadCount":
@@ -220,6 +232,10 @@ func (s *Service) getIconValue(iconSet *IconSet, iconName string) string {
 		return iconSet.Starred
 	case "archive":
 		return iconSet.Archive
+	case "folder":
+		return iconSet.Folder
+	case "spam":
+		return iconSet.Spam
 	case "compose":
 		return iconSet.Compose
 	case "search":
@@ -254,6 +270,10 @@ func (s *Service) getIconValue(iconSet *IconSet, iconName string) string {
 		return iconSet.Collapsed
 	case "expanded":
 		return iconSet.Expanded
+	case "scrollUp":
+		return iconSet.ScrollUp
+	case "scrollDown":
+		return iconSet.ScrollDown
 	case "total":
 		return iconSet.Total
 	case "unreadCount":
@@ -276,6 +296,8 @@ func createEmojiSet() *IconSet {
 		Trash:        "🗑️",
 		Starred:      "⭐",
 		Archive:      "📦",
+		Folder:       "📁",
+		Spam:         "🚫",
 		Compose:      "📝",
 		Search:       "🔍",
 		Settings:     "⚙️",
@@ -293,6 +315,8 @@ func createEmojiSet() *IconSet {
 		Selected:     "▶",
 		Collapsed:    "▶",
 		Expanded:     "▼",
+		ScrollUp:     "↑",
+		ScrollDown:   "↓",
 		Total:        "📊",
 		UnreadCount:  "●",
 		StarredCount: "⭐",
@@ -309,6 +333,8 @@ func createASCIISet() *IconSet {
 		Trash:   "🗑",
 		Starred: "⭐",
 		Archive: "📦",
+		Folder:  "📁",
+		Spam:    "🚫",
 
 		// Actions - using Neotree-style action icons
 		Compose:  "✏",
@@ -331,9 +357,11 @@ func createASCIISet() *IconSet {
 		Bottom:   "⬇",
 
 		// UI elements - using Neotree-style selection icons
-		Selected:  "▶",
-		Collapsed: "▶",
-		Expanded:  "▼",
+		Selected:   "▶",
+		Collapsed:  "▶",
+		Expanded:   "▼",
+		ScrollUp:   "↑",
+		ScrollDown: "↓",
 
 		// Statistics - using Neotree-style info icons
 		Total:        "📊",
