@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -71,7 +72,7 @@ func (s *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return s.handleKeyPress(msg)
 	case foldersRefreshedMsg:
-		s.folders = msg.folders
+		s.folders = s.filterMasterFolders(msg.folders)
 		// Set default selection to first folder if available
 		if len(s.folders) > 0 && s.selectedFolder == "" {
 			s.selectedFolder = s.folders[0].Name
@@ -102,35 +103,35 @@ func (s *Sidebar) View() string {
 		return result
 	}
 
-	// Calculate available height for folders (subtract header and quick actions)
-	headerHeight := 2 // "Mail Folders" + separator
-	quickActionsHeight := 0
-	if s.height > 10 {
-		quickActionsHeight = 5 // Quick Actions section
+	// Calculate available height for folders (subtract header only)
+	headerHeight := 2 // "Mail Folders" + separator (2 lines)
+	availableHeight := s.height - headerHeight
+
+	// Ensure we have at least 1 line for folders
+	if availableHeight < 1 {
+		availableHeight = 1
 	}
-	availableHeight := s.height - headerHeight - quickActionsHeight
 
 	// Determine which folders to display based on available height
 	startIndex := 0
 	endIndex := len(s.folders)
 
+	// Always limit to available height
+	if endIndex > availableHeight {
+		endIndex = availableHeight
+	}
+
 	if availableHeight < len(s.folders) {
 		// Need to scroll - show subset of folders
-		if s.selectedIndex >= len(s.folders) {
-			// Quick action is selected, adjust for that
+		// Center the selection
+		startIndex = s.selectedIndex - (availableHeight / 2)
+		if startIndex < 0 {
 			startIndex = 0
-			endIndex = availableHeight
-		} else {
-			// Folder is selected, center the selection
-			startIndex = s.selectedIndex - (availableHeight / 2)
-			if startIndex < 0 {
-				startIndex = 0
-			}
-			endIndex = startIndex + availableHeight
-			if endIndex > len(s.folders) {
-				endIndex = len(s.folders)
-				startIndex = endIndex - availableHeight
-			}
+		}
+		endIndex = startIndex + availableHeight
+		if endIndex > len(s.folders) {
+			endIndex = len(s.folders)
+			startIndex = endIndex - availableHeight
 		}
 	}
 
@@ -290,11 +291,7 @@ func (s *Sidebar) GoToBottom() tea.Cmd {
 
 // getItemCount returns the total number of selectable items
 func (s *Sidebar) getItemCount() int {
-	count := len(s.folders) // All folders are selectable
-	if s.height > 10 {
-		count += 3 // Quick Actions section: Compose, Search, Settings
-	}
-	return count
+	return len(s.folders) // All folders are selectable
 }
 
 // handleKeyPress handles key presses in the sidebar
@@ -401,4 +398,88 @@ func (s *Sidebar) truncateTextByDisplayWidth(text string, maxDisplayWidth int) s
 	}
 
 	return "…"
+}
+
+// filterMasterFolders removes the first part of the folder path and groups Maildir subdirectories
+func (s *Sidebar) filterMasterFolders(folders []*email.MailFolder) []*email.MailFolder {
+	var filtered []*email.MailFolder
+	folderMap := make(map[string]*email.MailFolder)
+
+	for _, folder := range folders {
+		// Skip folders that don't contain a slash (master folders)
+		if !strings.Contains(folder.Name, "/") {
+			continue
+		}
+
+		// Create a new folder with the first part of the path removed
+		parts := strings.Split(folder.Name, "/")
+		if len(parts) > 1 {
+			// Remove the first part and join the rest
+			newName := strings.Join(parts[1:], "/")
+
+			// Check if this is a Maildir subdirectory (cur, new, or tmp)
+			if s.isMaildirSubdir(newName) {
+				// Extract the parent folder name (remove /cur, /new, or /tmp)
+				parentName := s.getMaildirParent(newName)
+
+				// If we already have this folder, merge the counts
+				if existing, exists := folderMap[parentName]; exists {
+					existing.UnreadCount += folder.UnreadCount
+					existing.MessageCount += folder.MessageCount
+				} else {
+					// Create a new folder for the parent
+					folderMap[parentName] = &email.MailFolder{
+						Name:         parentName,
+						Path:         folder.Path, // Use the path from the first subdirectory
+						UnreadCount:  folder.UnreadCount,
+						MessageCount: folder.MessageCount,
+						IsSpecial:    folder.IsSpecial,
+					}
+				}
+			} else {
+				// Regular folder, add as-is
+				folderMap[newName] = &email.MailFolder{
+					Name:         newName,
+					Path:         folder.Path,
+					UnreadCount:  folder.UnreadCount,
+					MessageCount: folder.MessageCount,
+					IsSpecial:    folder.IsSpecial,
+				}
+			}
+		}
+	}
+
+	// Convert map to slice
+	for _, folder := range folderMap {
+		filtered = append(filtered, folder)
+	}
+
+	// Sort folders by name (case-sensitive)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].Name < filtered[j].Name
+	})
+
+	return filtered
+}
+
+// isMaildirSubdir checks if a folder name ends with /cur, /new, or /tmp
+func (s *Sidebar) isMaildirSubdir(folderName string) bool {
+	return strings.HasSuffix(folderName, "/cur") ||
+		strings.HasSuffix(folderName, "/new") ||
+		strings.HasSuffix(folderName, "/tmp")
+}
+
+// getMaildirParent extracts the parent folder name from a Maildir subdirectory
+func (s *Sidebar) getMaildirParent(folderName string) string {
+	// Remove /cur, /new, or /tmp from the end
+	if strings.HasSuffix(folderName, "/cur") {
+		return strings.TrimSuffix(folderName, "/cur")
+	}
+	if strings.HasSuffix(folderName, "/new") {
+		return strings.TrimSuffix(folderName, "/new")
+	}
+	if strings.HasSuffix(folderName, "/tmp") {
+		return strings.TrimSuffix(folderName, "/tmp")
+	}
+	return folderName
 }
