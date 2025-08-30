@@ -2,10 +2,22 @@ package email
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
+
+// MailFolder represents a mail folder
+type MailFolder struct {
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	UnreadCount  int    `json:"unread_count"`
+	MessageCount int    `json:"message_count"`
+	IsSpecial    bool   `json:"is_special"` // Special folders like INBOX, Sent, etc.
+}
 
 // Thread represents a conversation thread
 type Thread struct {
@@ -164,6 +176,133 @@ func (m *Manager) GetUnreadCount() (int, error) {
 		return 0, fmt.Errorf("failed to parse unread count: %w", err)
 	}
 	return count, nil
+}
+
+// GetMailFolders scans the mail directory and returns all available folders
+func (m *Manager) GetMailFolders() ([]*MailFolder, error) {
+	var folders []*MailFolder
+
+	// Check if mail directory exists
+	if _, err := os.Stat(m.maildirPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("mail directory does not exist: %s", m.maildirPath)
+	}
+
+	// Walk through the mail directory
+	err := filepath.Walk(m.maildirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			// Log error but continue scanning other directories
+			return nil
+		}
+
+		// Skip the root directory itself
+		if path == m.maildirPath {
+			return nil
+		}
+
+		// Only process directories
+		if !info.IsDir() {
+			return nil
+		}
+
+		// Get relative path from mail directory
+		relPath, err := filepath.Rel(m.maildirPath, path)
+		if err != nil {
+			// Skip this directory if we can't get relative path
+			return nil
+		}
+
+		// Skip hidden directories (starting with .)
+		if strings.HasPrefix(relPath, ".") {
+			return nil
+		}
+
+		// Skip Maildir storage folders (cur, new, tmp)
+		if m.isMaildirStorageFolder(relPath) {
+			return nil
+		}
+
+		// Check if this is a special folder
+		isSpecial := m.isSpecialFolder(relPath)
+
+		// Get unread and message counts using notmuch
+		unreadCount, messageCount := m.getFolderCounts(relPath)
+
+		folder := &MailFolder{
+			Name:         relPath,
+			Path:         path,
+			UnreadCount:  unreadCount,
+			MessageCount: messageCount,
+			IsSpecial:    isSpecial,
+		}
+
+		folders = append(folders, folder)
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan mail directory: %w", err)
+	}
+
+	// Sort folders: special folders first, then alphabetically
+	sort.Slice(folders, func(i, j int) bool {
+		if folders[i].IsSpecial && !folders[j].IsSpecial {
+			return true
+		}
+		if !folders[i].IsSpecial && folders[j].IsSpecial {
+			return false
+		}
+		return strings.ToLower(folders[i].Name) < strings.ToLower(folders[j].Name)
+	})
+
+	return folders, nil
+}
+
+// isSpecialFolder checks if a folder is a special system folder
+func (m *Manager) isSpecialFolder(folderName string) bool {
+	upperName := strings.ToUpper(folderName)
+	specialFolders := []string{"INBOX", "SENT", "DRAFTS", "TRASH", "SPAM", "ARCHIVE", "JUNK"}
+
+	for _, special := range specialFolders {
+		if upperName == special {
+			return true
+		}
+	}
+	return false
+}
+
+// isMaildirStorageFolder checks if a folder is a Maildir storage folder
+func (m *Manager) isMaildirStorageFolder(folderName string) bool {
+	// Maildir storage folders that should not be displayed
+	storageFolders := []string{"cur", "new", "tmp"}
+
+	for _, storage := range storageFolders {
+		if folderName == storage {
+			return true
+		}
+	}
+	return false
+}
+
+// getFolderCounts gets the unread and total message counts for a folder
+func (m *Manager) getFolderCounts(folderName string) (unread, total int) {
+	// Use notmuch to count messages in the folder
+	// Format: folder:folderName
+	query := fmt.Sprintf("folder:%s", folderName)
+
+	// Get total count
+	totalCmd := exec.Command(m.notmuchPath, "count", query)
+	if output, err := totalCmd.Output(); err == nil {
+		fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &total)
+	}
+
+	// Get unread count
+	unreadQuery := fmt.Sprintf("%s and tag:unread", query)
+	unreadCmd := exec.Command(m.notmuchPath, "count", unreadQuery)
+	if output, err := unreadCmd.Output(); err == nil {
+		fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &unread)
+	}
+
+	return unread, total
 }
 
 // parseNotmuchResults parses notmuch search results
