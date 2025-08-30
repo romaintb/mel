@@ -292,14 +292,18 @@ func (m *Manager) getFolderCounts(folderName string) (unread, total int) {
 	// Get total count
 	totalCmd := exec.Command(m.notmuchPath, "count", query)
 	if output, err := totalCmd.Output(); err == nil {
-		fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &total)
+		if _, err := fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &total); err != nil {
+			total = 0
+		}
 	}
 
 	// Get unread count
 	unreadQuery := fmt.Sprintf("%s and tag:unread", query)
 	unreadCmd := exec.Command(m.notmuchPath, "count", unreadQuery)
 	if output, err := unreadCmd.Output(); err == nil {
-		fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &unread)
+		if _, err := fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &unread); err != nil {
+			unread = 0
+		}
 	}
 
 	return unread, total

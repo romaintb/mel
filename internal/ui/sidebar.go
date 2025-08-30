@@ -207,17 +207,6 @@ func (s *Sidebar) getFolderIcon(folder *email.MailFolder) string {
 	}
 }
 
-// truncateText truncates text to fit within the specified width, adding ellipsis if needed
-func (s *Sidebar) truncateText(text string, maxWidth int) string {
-	if len(text) <= maxWidth {
-		return text
-	}
-	if maxWidth <= 1 {
-		return "…"
-	}
-	return text[:maxWidth-1] + "…"
-}
-
 // formatFolderDisplay formats the folder display with counts
 // This function ensures that folder names never wrap to multiple lines by truncating
 // long names and adding ellipsis (...) when necessary.
@@ -342,30 +331,6 @@ func (s *Sidebar) selectCurrentItem() {
 // GetSelectedFolder returns the currently selected folder
 func (s *Sidebar) GetSelectedFolder() string {
 	return s.selectedFolder
-}
-
-// getAvailableWidthForFolder calculates the available width for folder names
-func (s *Sidebar) getAvailableWidthForFolder() int {
-	// Calculate available width for folder name (subtract icons, prefixes, and padding)
-	// Prefix: "├── " or "└── " (4 chars)
-	// Selection icon: "▶ " (2 chars) - only when selected
-	// Folder icon: "📁 " (2 chars)
-	// Unread count: " (X)" (up to 6 chars) - only reserve space if there are unread emails
-	// Padding: 0 chars (removed padding for better space utilization)
-	prefixWidth := 4
-	iconWidth := 2
-	paddingWidth := 0
-	// Don't reserve space for unread count by default - only when needed
-	maxCountWidth := 0
-
-	availableWidth := s.width - prefixWidth - iconWidth - paddingWidth - maxCountWidth
-
-	// Ensure minimum width but allow more space for folder names
-	if availableWidth < 6 {
-		availableWidth = 6
-	}
-
-	return availableWidth
 }
 
 // calculateDisplayWidth calculates the display width of a string, accounting for emoji width
