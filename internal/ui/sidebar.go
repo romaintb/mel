@@ -51,9 +51,8 @@ func (s *Sidebar) refreshFolders() tea.Cmd {
 	return func() tea.Msg {
 		folders, err := s.emailManager.GetMailFolders()
 		if err != nil {
-			// Return empty folders on error, but log it
-			// For debugging, you can uncomment the next line to see errors
-			// fmt.Printf("Error refreshing folders: %v\n", err)
+			// Log error for debugging
+			fmt.Printf("Error refreshing folders: %v\n", err)
 			return foldersRefreshedMsg{folders: []*email.MailFolder{}, err: err}
 		}
 		return foldersRefreshedMsg{folders: folders, err: nil}
@@ -64,6 +63,11 @@ func (s *Sidebar) refreshFolders() tea.Cmd {
 type foldersRefreshedMsg struct {
 	folders []*email.MailFolder
 	err     error
+}
+
+// FolderSelectedMsg is sent when a folder is selected in the sidebar
+type FolderSelectedMsg struct {
+	FolderName string
 }
 
 // Update handles sidebar updates
@@ -296,7 +300,7 @@ func (s *Sidebar) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return s, s.Prev()
 	case "enter":
 		// Select folder or action
-		s.selectCurrentItem()
+		return s, s.selectCurrentItem()
 	case "home":
 		return s, s.GoToTop()
 	case "end":
@@ -310,10 +314,14 @@ func (s *Sidebar) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // selectCurrentItem selects the currently highlighted item
-func (s *Sidebar) selectCurrentItem() {
+func (s *Sidebar) selectCurrentItem() tea.Cmd {
 	if s.selectedIndex < len(s.folders) {
 		// Select a folder
 		s.selectedFolder = s.folders[s.selectedIndex].Name
+		// Return message to notify that folder was selected
+		return func() tea.Msg {
+			return FolderSelectedMsg{FolderName: s.selectedFolder}
+		}
 	} else {
 		// Handle quick actions
 		actionIndex := s.selectedIndex - len(s.folders)
@@ -326,6 +334,7 @@ func (s *Sidebar) selectCurrentItem() {
 			// TODO: Trigger settings action
 		}
 	}
+	return nil
 }
 
 // GetSelectedFolder returns the currently selected folder
@@ -365,63 +374,25 @@ func (s *Sidebar) truncateTextByDisplayWidth(text string, maxDisplayWidth int) s
 	return "…"
 }
 
-// filterMasterFolders removes the first part of the folder path and groups Maildir subdirectories
+// filterMasterFolders processes folders for display, handling Maildir subdirectories
 func (s *Sidebar) filterMasterFolders(folders []*email.MailFolder) []*email.MailFolder {
 	var filtered []*email.MailFolder
-	folderMap := make(map[string]*email.MailFolder)
 
 	for _, folder := range folders {
-		// Skip folders that don't contain a slash (master folders)
-		if !strings.Contains(folder.Name, "/") {
-			continue
-		}
-
-		// Create a new folder with the first part of the path removed
-		parts := strings.Split(folder.Name, "/")
-		if len(parts) > 1 {
-			// Remove the first part and join the rest
-			newName := strings.Join(parts[1:], "/")
-
-			// Check if this is a Maildir subdirectory (cur, new, or tmp)
-			if s.isMaildirSubdir(newName) {
-				// Extract the parent folder name (remove /cur, /new, or /tmp)
-				parentName := s.getMaildirParent(newName)
-
-				// If we already have this folder, merge the counts
-				if existing, exists := folderMap[parentName]; exists {
-					existing.UnreadCount += folder.UnreadCount
-					existing.MessageCount += folder.MessageCount
-				} else {
-					// Create a new folder for the parent
-					folderMap[parentName] = &email.MailFolder{
-						Name:         parentName,
-						Path:         folder.Path, // Use the path from the first subdirectory
-						UnreadCount:  folder.UnreadCount,
-						MessageCount: folder.MessageCount,
-						IsSpecial:    folder.IsSpecial,
-					}
-				}
-			} else {
-				// Regular folder, add as-is
-				folderMap[newName] = &email.MailFolder{
-					Name:         newName,
-					Path:         folder.Path,
-					UnreadCount:  folder.UnreadCount,
-					MessageCount: folder.MessageCount,
-					IsSpecial:    folder.IsSpecial,
-				}
-			}
-		}
-	}
-
-	// Convert map to slice
-	for _, folder := range folderMap {
+		// For now, just use the folder as-is without complex filtering
+		// This ensures all folders including top-level ones are displayed
 		filtered = append(filtered, folder)
 	}
 
-	// Sort folders by name (case-sensitive)
+	// Sort folders: special folders first, then alphabetically
 	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].Name < filtered[j].Name
+		if filtered[i].IsSpecial && !filtered[j].IsSpecial {
+			return true
+		}
+		if !filtered[i].IsSpecial && filtered[j].IsSpecial {
+			return false
+		}
+		return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name)
 	})
 
 	return filtered

@@ -1,6 +1,7 @@
 package email
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -119,6 +120,27 @@ func (m *Manager) GetThread(threadID string) (*Thread, error) {
 	}
 
 	return thread, nil
+}
+
+// GetThreadsFromFolder gets threads from a specific folder
+func (m *Manager) GetThreadsFromFolder(folderName string) ([]*Thread, error) {
+	// Use notmuch search to get threads from the folder
+	query := fmt.Sprintf("folder:%s", folderName)
+	cmd := exec.Command(m.notmuchPath, "search", "--format=json", "--sort=newest-first", query)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to search threads in folder %s: %w", folderName, err)
+	}
+
+	// Parse the JSON output to get threads
+	threads, err := m.parseNotmuchSearchResults(output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse search results: %w", err)
+	}
+
+	// Return the threads directly from search results (they contain all needed data)
+	return threads, nil
 }
 
 // MarkThreadRead marks all messages in a thread as read
@@ -307,6 +329,71 @@ func (m *Manager) getFolderCounts(folderName string) (unread, total int) {
 	}
 
 	return unread, total
+}
+
+// NotmuchSearchResult represents a single search result from notmuch
+type NotmuchSearchResult struct {
+	Thread       string   `json:"thread"`
+	Timestamp    int64    `json:"timestamp"`
+	Authors      string   `json:"authors"`
+	Subject      string   `json:"subject"`
+	Tags         []string `json:"tags"`
+	Matched      int      `json:"matched"`
+	Total        int      `json:"total"`
+	Query        []string `json:"query"`
+	DateRelative string   `json:"date_relative"`
+}
+
+// parseNotmuchSearchResults parses notmuch search results to extract thread data
+func (m *Manager) parseNotmuchSearchResults(output []byte) ([]*Thread, error) {
+	if len(output) == 0 {
+		return []*Thread{}, nil
+	}
+
+	// Parse the JSON array
+	var results []NotmuchSearchResult
+	if err := json.Unmarshal(output, &results); err != nil {
+		return nil, fmt.Errorf("failed to parse notmuch search results: %w", err)
+	}
+
+	// Convert to Thread structs
+	threads := make([]*Thread, 0, len(results))
+	for _, result := range results {
+		// Check if thread is unread
+		isUnread := false
+		for _, tag := range result.Tags {
+			if tag == "unread" {
+				isUnread = true
+				break
+			}
+		}
+
+		// Create participants list from authors
+		participants := []string{result.Authors}
+
+		// Convert timestamp to time.Time
+		timestamp := time.Unix(result.Timestamp, 0)
+
+		thread := &Thread{
+			ID:           result.Thread,
+			Subject:      result.Subject,
+			Participants: participants,
+			Timestamp:    timestamp,
+			UnreadCount:  boolToInt(isUnread),
+			MessageCount: result.Total,
+		}
+
+		threads = append(threads, thread)
+	}
+	return threads, nil
+}
+
+// boolToInt converts boolean to int for unread count
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // parseNotmuchResults parses notmuch search results
