@@ -153,6 +153,9 @@ func (u *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		u.width = msg.Width
 		u.height = msg.Height
 		cmds = append(cmds, u.handleResize(msg)...)
+	case FolderSelectedMsg:
+		// Handle folder selection - load threads from selected folder
+		cmds = append(cmds, u.threadList.LoadThreads(msg.FolderName))
 	}
 
 	// Update child components
@@ -338,11 +341,22 @@ func (u *UI) handleNormalMode(msg tea.KeyMsg) []tea.Cmd {
 	case msg.String() == "p":
 		// Previous unread thread
 		cmds = append(cmds, u.threadList.PrevUnread())
-	case msg.String() == "o":
+	case msg.Type == tea.KeyEnter:
 		// Enter/select in focused box
 		if u.focusedBox == FocusedSidebar {
-			// TODO: Implement sidebar selection
-			u.statusBar.SetMessage("Sidebar selection")
+			// Select folder in sidebar
+			cmds = append(cmds, u.sidebar.selectCurrentItem())
+			u.statusBar.SetMessage("Folder selected")
+		} else {
+			// Expand/collapse thread
+			cmds = append(cmds, u.threadList.ToggleThread())
+		}
+	case msg.String() == "o":
+		// Enter/select in focused box (alternative key)
+		if u.focusedBox == FocusedSidebar {
+			// Select folder in sidebar
+			cmds = append(cmds, u.sidebar.selectCurrentItem())
+			u.statusBar.SetMessage("Folder selected")
 		} else {
 			// Expand/collapse thread
 			cmds = append(cmds, u.threadList.ToggleThread())
@@ -365,6 +379,16 @@ func (u *UI) handleNormalMode(msg tea.KeyMsg) []tea.Cmd {
 	case msg.String() == "e":
 		// Toggle sidebar (leader+e as specified in PRD)
 		cmds = append(cmds, u.sidebar.Toggle())
+	case msg.Type == tea.KeyCtrlD:
+		// Page down in thread list
+		if u.focusedBox == FocusedContent {
+			cmds = append(cmds, u.threadList.PageDown())
+		}
+	case msg.Type == tea.KeyCtrlU:
+		// Page up in thread list
+		if u.focusedBox == FocusedContent {
+			cmds = append(cmds, u.threadList.PageUp())
+		}
 	}
 
 	return cmds

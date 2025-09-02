@@ -16,6 +16,7 @@ type ThreadList struct {
 	height       int
 	focused      bool
 	selected     int
+	scrollOffset int // How many items are scrolled up
 	threads      []ThreadItem
 }
 
@@ -31,13 +32,6 @@ type ThreadItem struct {
 
 // NewThreadList creates a new thread list instance
 func NewThreadList(cfg *config.Config, emailManager *email.Manager, iconService *icons.Service) (*ThreadList, error) {
-	// Mock data for now
-	threads := []ThreadItem{
-		{ID: "1", Subject: "Welcome to Mel", From: "team@mel.com", Date: "2024-01-15", Unread: true, Starred: false},
-		{ID: "2", Subject: "Project Update", From: "manager@work.com", Date: "2024-01-14", Unread: false, Starred: true},
-		{ID: "3", Subject: "Meeting Tomorrow", From: "colleague@work.com", Date: "2024-01-13", Unread: true, Starred: false},
-	}
-
 	return &ThreadList{
 		config:       cfg,
 		emailManager: emailManager,
@@ -46,13 +40,21 @@ func NewThreadList(cfg *config.Config, emailManager *email.Manager, iconService 
 		height:       0,
 		focused:      false,
 		selected:     0,
-		threads:      threads,
+		threads:      []ThreadItem{}, // Start empty, will be populated by LoadThreads
 	}, nil
 }
 
 // Init initializes the thread list
 func (t *ThreadList) Init() tea.Cmd {
-	return nil
+	// Load threads from INBOX by default
+	return t.LoadThreads("INBOX")
+}
+
+// threadsLoadedMsg is sent when threads are loaded
+type threadsLoadedMsg struct {
+	threads []*email.Thread
+	folder  string
+	err     error
 }
 
 // Update handles thread list updates
@@ -60,21 +62,101 @@ func (t *ThreadList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return t.handleKeyPress(msg)
+	case threadsLoadedMsg:
+		return t.handleThreadsLoaded(msg)
 	}
+	return t, nil
+}
+
+// LoadThreads loads threads from a specific folder
+func (t *ThreadList) LoadThreads(folderName string) tea.Cmd {
+	return func() tea.Msg {
+		threads, err := t.emailManager.GetThreadsFromFolder(folderName)
+		if err != nil {
+			return threadsLoadedMsg{threads: nil, folder: folderName, err: err}
+		}
+
+		return threadsLoadedMsg{threads: threads, folder: folderName, err: nil}
+	}
+}
+
+// getPrimarySender extracts the primary sender from participants
+func (t *ThreadList) getPrimarySender(participants []string) string {
+	if len(participants) > 0 {
+		return participants[0]
+	}
+	return "Unknown"
+}
+
+// handleThreadsLoaded handles when threads are loaded
+func (t *ThreadList) handleThreadsLoaded(msg threadsLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		// On error, keep existing threads but could show error message
+		return t, nil
+	}
+
+	// Convert threads to ThreadItems
+	var threadItems []ThreadItem
+	for _, thread := range msg.threads {
+		from := t.getPrimarySender(thread.Participants)
+		date := thread.Timestamp.Format("2006-01-02")
+		unread := thread.UnreadCount > 0
+
+		item := ThreadItem{
+			ID:      thread.ID,
+			Subject: thread.Subject,
+			From:    from,
+			Date:    date,
+			Unread:  unread,
+			Starred: false, // TODO: Check if thread is starred
+		}
+
+		threadItems = append(threadItems, item)
+	}
+
+	t.threads = threadItems
+	t.selected = 0     // Reset selection to first thread
+	t.scrollOffset = 0 // Reset scroll offset
+
 	return t, nil
 }
 
 // View renders the thread list
 func (t *ThreadList) View() string {
-	if t.width == 0 || len(t.threads) == 0 {
-		return "No threads"
+	if t.width == 0 {
+		return ""
+	}
+
+	if len(t.threads) == 0 {
+		return t.iconService.Get("email") + " Threads\n─────────\nNo threads"
 	}
 
 	var result string
 	result += t.iconService.Get("email") + " Threads\n"
 	result += "─────────\n"
 
-	for i, thread := range t.threads {
+	// Calculate how many thread items can fit in the available height
+	// Each thread takes 1 line
+	availableHeight := t.height - 2        // Subtract header height
+	maxVisibleItems := availableHeight - 2 // Subtract space for scroll indicators
+
+	// Ensure we don't try to show more items than we have
+	totalItems := len(t.threads)
+	if maxVisibleItems > totalItems {
+		maxVisibleItems = totalItems
+	}
+
+	// Calculate the range of items to display
+	startIdx := t.scrollOffset
+	endIdx := startIdx + maxVisibleItems
+	if endIdx > totalItems {
+		endIdx = totalItems
+	}
+
+	// Display the visible threads (1 line per thread)
+	for i := startIdx; i < endIdx; i++ {
+		thread := t.threads[i]
+
 		prefix := "  "
 		if i == t.selected {
 			prefix = t.iconService.Get("selected") + " "
@@ -90,35 +172,49 @@ func (t *ThreadList) View() string {
 			starred = t.iconService.Get("star") + " "
 		}
 
-		result += prefix + unread + starred + thread.Subject + "\n"
-		result += "   " + thread.From + " • " + thread.Date + "\n"
-		if i < len(t.threads)-1 {
-			result += "\n"
+		// Calculate available width for content (subtract prefix length)
+		prefixLength := len(prefix) + len(unread) + len(starred)
+		availableWidth := t.width - prefixLength - 1 // -1 for newline
+
+		// Build the line with truncation: [subject] from [sender] • [date]
+		subject := thread.Subject
+		sender := thread.From
+		date := thread.Date
+
+		// Calculate the fixed parts: " from " + sender + " • " + date
+		fixedParts := " from " + sender + " • " + date
+		fixedLength := len(fixedParts)
+
+		// Truncate subject if needed to fit within available width
+		if fixedLength+len(subject) > availableWidth && availableWidth > 10 {
+			maxSubjectLen := availableWidth - fixedLength - 3 // -3 for "..."
+			if maxSubjectLen > 0 && len(subject) > maxSubjectLen {
+				subject = subject[:maxSubjectLen] + "..."
+			}
 		}
+
+		line := prefix + unread + starred + subject + " from " + sender + " • " + date + "\n"
+		result += line
 	}
 
-	// Add more mock threads if we have more height available
-	if t.height > 15 {
-		result += "\n" + t.iconService.Get("email") + " More Threads\n"
-		result += "──────────────\n"
-		result += "  " + t.iconService.Get("email") + " Weekly Report\n"
-		result += "   team@company.com • 2024-01-12\n"
-		result += "\n  " + t.iconService.Get("email") + " Calendar Update\n"
-		result += "   calendar@company.com • 2024-01-11\n"
-		result += "\n  " + t.iconService.Get("email") + " Team Chat\n"
-		result += "   chat@company.com • 2024-01-10\n"
+	// Add scroll indicators if needed
+	if startIdx > 0 {
+		// Show scroll up indicator at the top
+		scrollUpText := t.iconService.Get("scrollUp") + " More above..."
+		if len(scrollUpText) > t.width {
+			scrollUpText = scrollUpText[:t.width-3] + "..."
+		}
+		result = scrollUpText + "\n" + result
+	}
+	if endIdx < totalItems {
+		// Show scroll down indicator at the bottom
+		scrollDownText := t.iconService.Get("scrollDown") + " More below..."
+		if len(scrollDownText) > t.width {
+			scrollDownText = scrollDownText[:t.width-3] + "..."
+		}
+		result += "\n" + scrollDownText
 	}
 
-	if t.height > 25 {
-		result += "\n" + t.iconService.Get("archive") + " Archive\n"
-		result += "─────────\n"
-		result += "  " + t.iconService.Get("email") + " Q4 Results\n"
-		result += "   finance@company.com • 2024-01-09\n"
-		result += "\n  " + t.iconService.Get("email") + " Holiday Party\n"
-		result += "   hr@company.com • 2024-01-08\n"
-	}
-
-	// Let lipgloss handle all the layout and padding
 	return result
 }
 
@@ -170,27 +266,75 @@ func (t *ThreadList) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // GoToTop goes to the first thread
 func (t *ThreadList) GoToTop() tea.Cmd {
 	t.selected = 0
+	t.scrollOffset = 0
 	return nil
 }
 
 // GoToBottom goes to the last thread
 func (t *ThreadList) GoToBottom() tea.Cmd {
+	if len(t.threads) == 0 {
+		return nil
+	}
+
 	t.selected = len(t.threads) - 1
+
+	// Calculate how many items can be visible
+	availableHeight := t.height - 2
+	maxVisibleItems := availableHeight - 2 // Subtract space for scroll indicators
+	if maxVisibleItems > len(t.threads) {
+		maxVisibleItems = len(t.threads)
+	}
+
+	// Scroll so that the selected item is visible at the bottom
+	if len(t.threads) > maxVisibleItems {
+		t.scrollOffset = len(t.threads) - maxVisibleItems
+	} else {
+		t.scrollOffset = 0
+	}
+
 	return nil
 }
 
 // Next goes to the next thread
 func (t *ThreadList) Next() tea.Cmd {
+	if len(t.threads) == 0 {
+		return nil
+	}
+
+	// Calculate how many items can be visible
+	availableHeight := t.height - 2
+	maxVisibleItems := availableHeight - 2 // Subtract space for scroll indicators
+	if maxVisibleItems > len(t.threads) {
+		maxVisibleItems = len(t.threads)
+	}
+
+	// Move selection down
 	if t.selected < len(t.threads)-1 {
 		t.selected++
+
+		// Check if we need to scroll down
+		visibleStart := t.scrollOffset
+		visibleEnd := visibleStart + maxVisibleItems
+
+		if t.selected >= visibleEnd {
+			t.scrollOffset++
+		}
 	}
 	return nil
 }
 
 // Prev goes to the previous thread
 func (t *ThreadList) Prev() tea.Cmd {
-	if t.selected > 0 {
-		t.selected--
+	if len(t.threads) == 0 || t.selected <= 0 {
+		return nil
+	}
+
+	// Move selection up
+	t.selected--
+
+	// Check if we need to scroll up
+	if t.selected < t.scrollOffset {
+		t.scrollOffset--
 	}
 	return nil
 }
@@ -200,6 +344,8 @@ func (t *ThreadList) NextUnread() tea.Cmd {
 	for i := t.selected + 1; i < len(t.threads); i++ {
 		if t.threads[i].Unread {
 			t.selected = i
+			// Adjust scroll offset to make the selected item visible
+			t.adjustScrollForSelection()
 			break
 		}
 	}
@@ -211,9 +357,98 @@ func (t *ThreadList) PrevUnread() tea.Cmd {
 	for i := t.selected - 1; i >= 0; i-- {
 		if t.threads[i].Unread {
 			t.selected = i
+			// Adjust scroll offset to make the selected item visible
+			t.adjustScrollForSelection()
 			break
 		}
 	}
+	return nil
+}
+
+// adjustScrollForSelection adjusts the scroll offset to make the currently selected item visible
+func (t *ThreadList) adjustScrollForSelection() {
+	if len(t.threads) == 0 {
+		return
+	}
+
+	// Calculate how many items can be visible
+	availableHeight := t.height - 2
+	maxVisibleItems := availableHeight - 2 // Subtract space for scroll indicators
+	if maxVisibleItems > len(t.threads) {
+		maxVisibleItems = len(t.threads)
+	}
+
+	// Ensure selected item is visible
+	if t.selected < t.scrollOffset {
+		t.scrollOffset = t.selected
+	} else if t.selected >= t.scrollOffset+maxVisibleItems {
+		t.scrollOffset = t.selected - maxVisibleItems + 1
+	}
+
+	// Ensure scroll offset doesn't go negative
+	if t.scrollOffset < 0 {
+		t.scrollOffset = 0
+	}
+}
+
+// PageDown scrolls down by one page
+func (t *ThreadList) PageDown() tea.Cmd {
+	if len(t.threads) == 0 {
+		return nil
+	}
+
+	// Calculate how many items can be visible
+	availableHeight := t.height - 2
+	maxVisibleItems := availableHeight - 2 // Subtract space for scroll indicators
+	if maxVisibleItems <= 0 {
+		maxVisibleItems = 1
+	}
+
+	// Scroll down by one page
+	newScrollOffset := t.scrollOffset + maxVisibleItems
+	maxScrollOffset := len(t.threads) - maxVisibleItems
+	if maxScrollOffset < 0 {
+		maxScrollOffset = 0
+	}
+
+	if newScrollOffset > maxScrollOffset {
+		newScrollOffset = maxScrollOffset
+	}
+
+	if newScrollOffset != t.scrollOffset {
+		t.scrollOffset = newScrollOffset
+		// Move selection to the first visible item
+		t.selected = t.scrollOffset
+	}
+
+	return nil
+}
+
+// PageUp scrolls up by one page
+func (t *ThreadList) PageUp() tea.Cmd {
+	if len(t.threads) == 0 {
+		return nil
+	}
+
+	// Calculate how many items can be visible
+	availableHeight := t.height - 2
+	maxVisibleItems := availableHeight - 2 // Subtract space for scroll indicators
+	if maxVisibleItems <= 0 {
+		maxVisibleItems = 1
+	}
+
+	// Scroll up by one page
+	newScrollOffset := t.scrollOffset - maxVisibleItems
+	if newScrollOffset < 0 {
+		newScrollOffset = 0
+	}
+
+	if newScrollOffset != t.scrollOffset {
+		t.scrollOffset = newScrollOffset
+		// Move selection to the first visible item
+		t.selected = t.scrollOffset
+	}
+
 	return nil
 }
 

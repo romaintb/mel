@@ -65,6 +65,11 @@ type foldersRefreshedMsg struct {
 	err     error
 }
 
+// FolderSelectedMsg is sent when a folder is selected in the sidebar
+type FolderSelectedMsg struct {
+	FolderName string
+}
+
 // Update handles sidebar updates
 func (s *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -295,7 +300,7 @@ func (s *Sidebar) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return s, s.Prev()
 	case "enter":
 		// Select folder or action
-		s.selectCurrentItem()
+		return s, s.selectCurrentItem()
 	case "home":
 		return s, s.GoToTop()
 	case "end":
@@ -309,10 +314,14 @@ func (s *Sidebar) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // selectCurrentItem selects the currently highlighted item
-func (s *Sidebar) selectCurrentItem() {
+func (s *Sidebar) selectCurrentItem() tea.Cmd {
 	if s.selectedIndex < len(s.folders) {
 		// Select a folder
 		s.selectedFolder = s.folders[s.selectedIndex].Name
+		// Return message to notify that folder was selected
+		return func() tea.Msg {
+			return FolderSelectedMsg{FolderName: s.selectedFolder}
+		}
 	} else {
 		// Handle quick actions
 		actionIndex := s.selectedIndex - len(s.folders)
@@ -325,6 +334,7 @@ func (s *Sidebar) selectCurrentItem() {
 			// TODO: Trigger settings action
 		}
 	}
+	return nil
 }
 
 // GetSelectedFolder returns the currently selected folder
